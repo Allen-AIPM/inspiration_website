@@ -4,6 +4,16 @@ import { join, resolve } from 'node:path';
 const root = resolve(import.meta.dirname, '..');
 const candidates = [join(root, 'index.html')];
 
+async function listImages(directory, prefix = '') {
+  const files = [];
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const name = prefix ? `${prefix}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) files.push(...await listImages(join(directory, entry.name), name));
+    else if (entry.isFile() && /\.(?:jpe?g|png|webp|avif|gif|bmp)$/i.test(entry.name)) files.push(name);
+  }
+  return files;
+}
+
 async function addTextFiles(directory) {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     const file = join(directory, entry.name);
@@ -27,4 +37,18 @@ if (exposed.length) {
   process.exitCode = 1;
 } else {
   console.log('Public source credential scan passed.');
+}
+
+const data = JSON.parse(await readFile(join(root, 'src', 'data.json'), 'utf8'));
+const photoIds = new Set(await listImages(join(root, 'public', 'photo')));
+const dataIds = new Set(data.items.map(item => item.id));
+const missingPhotos = [...dataIds].filter(id => !photoIds.has(id));
+const missingData = [...photoIds].filter(id => !dataIds.has(id));
+if (dataIds.size !== data.items.length || missingPhotos.length || missingData.length) {
+  console.error('网站图片数据与 public/photo 不一致。请在本机运行 npm run sync:data，然后重新构建。');
+  if (missingPhotos.length) console.error(`数据中已不存在的图片：${missingPhotos.join(', ')}`);
+  if (missingData.length) console.error(`尚未同步的图片：${missingData.join(', ')}`);
+  process.exitCode = 1;
+} else {
+  console.log(`Image data matches ${photoIds.size} originals.`);
 }
