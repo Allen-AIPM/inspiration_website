@@ -22,14 +22,16 @@ npm run preview
 
 ## 更新图片与标签
 
-原目录的 `photo/` 和 `data.js` 更新后，在 `website` 文件夹运行：
+影刀将原图直接下载到 `C:\Users\ASUS\Desktop\灵感库\website\public\photo`；图片资料仍保存到 `C:\Users\ASUS\Desktop\灵感库\图片信息保存.xlsx`（第一列须为完整图片文件名）。保存 Excel 后，双击根目录的 `更新数据.cmd`。它会依次去重、AI 打标、更新 `data.js`、生成网站缩略图和数据，并执行网站构建。运行成功后再提交 `website` 文件夹到 GitHub。
+
+如已单独更新过 `website/public/photo/` 和根目录的 `data.js`，也可在 `website` 文件夹手动运行：
 
 ```bash
 npm run sync:data
 npm run build
 ```
 
-同步脚本会复制全部原图到 `public/photo/`，生成较小的 WebP 图库缩略图到 `public/thumb/`，并生成首页背景图 `public/hero.webp`。详情页仍使用原图。图片尺寸记录在 `src/image-manifest.json`，避免图片加载时图库跳动。脚本需要本机 Python 和 Pillow（安装命令：`python -m pip install Pillow`）；Cloudflare 构建不需要 Python。
+同步脚本直接读取 `public/photo/`，生成较小的 WebP 图库缩略图到 `public/thumb/`，并生成首页背景图 `public/hero.webp`。详情页仍使用原图。图片尺寸记录在 `src/image-manifest.json`，避免图片加载时图库跳动。脚本需要本机 Python 和 Pillow（安装命令：`python -m pip install Pillow`）；Cloudflare 构建不需要 Python。
 
 图片资料和 AI 标签写入 `src/data.json`。尚未进入 `data.js` 的图片也会显示，但没有标题资料和 AI 标签。标签筛选选项从数据自动生成，五个维度可组合筛选。同步时会清除来源链接中的访问令牌等敏感 URL 参数。
 

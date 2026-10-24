@@ -1,5 +1,5 @@
-import { readFile, readdir, copyFile, mkdir, rm } from 'node:fs/promises';
-import { resolve, join, extname, relative, isAbsolute } from 'node:path';
+import { readFile, readdir, mkdir } from 'node:fs/promises';
+import { resolve, join, extname, basename } from 'node:path';
 import vm from 'node:vm';
 
 const site = resolve(import.meta.dirname, '..');
@@ -31,21 +31,25 @@ function stripSensitiveUrlParams(value) {
   return value;
 }
 
-const photoSource = join(source, 'photo');
-const photoTarget = join(site, 'public', 'photo');
-const targetRelative = relative(site, photoTarget);
-if (!targetRelative || targetRelative.startsWith('..') || isAbsolute(targetRelative)) throw new Error('图片输出目录必须位于 website 内');
-const files = (await readdir(photoSource)).filter(name => /\.(jpe?g|png|webp|gif|bmp|avif)$/i.test(name));
-await rm(photoTarget, { recursive: true, force: true });
-await mkdir(photoTarget, { recursive: true });
-await Promise.all(files.map(name => copyFile(join(photoSource, name), join(photoTarget, name))));
-
-const byName = new Map(original.items.map(item => [item.filename, item]));
-const items = files.map(filename => {
-  const existing = byName.get(filename);
+const photoSource = join(site, 'public', 'photo');
+async function listImages(directory, prefix = '') {
+  const found = [];
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const name = prefix ? `${prefix}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) found.push(...await listImages(join(directory, entry.name), name));
+    else if (entry.isFile() && /\.(jpe?g|png|webp|gif|bmp|avif)$/i.test(entry.name)) found.push(name);
+  }
+  return found;
+}
+const files = (await listImages(photoSource)).sort();
+const byId = new Map(original.items.map(item => [item.id, item]));
+const items = files.map(id => {
+  const filename = basename(id);
+  const existing = byId.get(id);
+  const src = `/photo/${id.split('/').map(encodeURIComponent).join('/')}`;
   return existing
-    ? { ...stripSensitiveUrlParams(existing), src: `/photo/${encodeURIComponent(filename)}` }
-    : { id: filename, filename, src: `/photo/${encodeURIComponent(filename)}`, title: filename.slice(0, -extname(filename).length), author: '未知作者', body: '', likes: '', likesValue: 0, saves: '', url: '', metadata: {}, modified: 0, ai_tags: null };
+    ? { ...stripSensitiveUrlParams(existing), src }
+    : { id, filename, src, title: filename.slice(0, -extname(filename).length), author: '未知作者', body: '', likes: '', likesValue: 0, saves: '', url: '', metadata: {}, modified: 0, ai_tags: null };
 });
 await mkdir(join(site, 'src'), { recursive: true });
 const data = { updatedAt: original.updatedAt, items };
